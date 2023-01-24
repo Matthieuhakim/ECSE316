@@ -3,10 +3,14 @@ import java.net.*;
 
 public class DnsClient {
 
-    //Not sure if they should be float
+    //Not sure if they should be float or int
     static float timeout = 5f;
     static float maxRetries = 3f;
     static float port = 53f;
+
+    static String requestType = "A";
+    static String serverIP = "";
+    static String domainName = "";
 
 
     public static void main(String[] args) {
@@ -14,9 +18,17 @@ public class DnsClient {
         //Input processing
         processInputs(args);
 
-        System.out.println("DnsClient sending request for [name] \n" +
-                "Server: [server IP address] \n" +
-                "Request type: [A | MX | NS]");
+        //Display a summary of the query
+        printQuerySummary();
+
+
+        //TODO: Send the request
+
+        //TODO: Receive response
+
+        //TODO: Process response
+
+        //TODO: Print results/errors
 
     }
 
@@ -24,14 +36,15 @@ public class DnsClient {
 
     /*
      * Helper method to process input
-     * To do:
-     * -mx and -ns flags
-     * @server
-     * name
-     *
+     * TODO: check that server IP and domainName are in a correct format
+     *  (Don't know if it should be here or it will be done automatically later when doing the request)
      */
     static void processInputs(String[] args){
-        for (int i = 0; i < args.length; i++) {
+
+        int n = args.length;
+        boolean changedRequestType = false;
+
+        for (int i = 0; i < n; i++) {
 
             if (args[i].equals("-t")){
                 try{
@@ -39,7 +52,7 @@ public class DnsClient {
                     i++;
 
                 }catch (Exception e){
-                    displayError("Incorrect input syntax: Timeout value not given after -t argument");
+                    displayInputError("Timeout value not given after -t argument");
                 }
             }else if (args[i].equals("-r")) {
 
@@ -48,7 +61,7 @@ public class DnsClient {
                     i++;
 
                 }catch (Exception e){
-                    displayError("Incorrect input syntax: Max-retries value not given after -r argument");
+                    displayInputError("Max-retries value not given after -r argument");
                 }
             }else if (args[i].equals("-p")) {
 
@@ -57,11 +70,42 @@ public class DnsClient {
                     i++;
 
                 }catch (Exception e){
-                    displayError("Incorrect input syntax: Port value not given after -p argument");
+                    displayInputError("Port value not given after -p argument");
                 }
-            }
+            }else if (args[i].equals("-mx")) {
 
+                if(!changedRequestType){
+                    requestType = "MX";
+                }else{
+                    displayInputError("Cannot have both -ns and -mx flags");
+                }
+            }else if (args[i].equals("-ns")) {
+
+                if(!changedRequestType){
+                    requestType = "NS";
+                }else{
+                    displayInputError("Cannot have both -mx and -ns flags");
+                }
+            }else if (args[i].charAt(0) == '@'){
+
+                    //Check that domain name is the last argument
+                    if( (i+1) != (n-1)){
+                        displayInputError("Server IP and Domain Name should be the last 2 arguments");
+                    }
+
+                    //Take IP address without the @
+                    serverIP = args[i].substring(1);
+
+                    //Domain name is the last argument
+                    domainName = args[i+1];
+                    return;
+
+            }else{
+                displayInputError("Found an invalid argument");
+            }
         }
+
+        displayInputError("Server IP not found");
     }
 
 
@@ -70,5 +114,16 @@ public class DnsClient {
 
         System.out.println(error);
         System.exit(1);
+    }
+
+    static void displayInputError(String description){
+        String error = "Incorrect input syntax: " + description;
+        displayError(error);
+    }
+
+    static void printQuerySummary(){
+        System.out.println("DnsClient sending request for " + domainName+  "\n" +
+                "Server: " + serverIP + "\n" +
+                "Request type: " + requestType + "\n");
     }
 }
