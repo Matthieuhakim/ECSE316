@@ -22,6 +22,8 @@ public class DnsClient {
         printQuerySummary();
 
 
+        //TODO: Construct DNS packet
+
         //TODO: Send the request
 
         //TODO: Receive response
