@@ -28,14 +28,13 @@ public class DnsClient {
 
 			// Display a summary of the query
 			printQuerySummary();
-			
-			// TODO: Send the request
+
+			//Create request
 			byte[] request = createRequest();
-			//byte[] response = sendRequest(request, 1);
 
 
+			sendRequest(request, 0);
 
-			// TODO: Receive response
 
 			// TODO: Process response
 
@@ -227,84 +226,124 @@ public class DnsClient {
 		return request;
 	}
 
+	/*
+	 * Sends the request and waits to receive a response
+	 * The response is then sent to the validateAndPrintResponse method
+	 *
+	 * The method takes the request as argument, and the numOfRetries which should be initialized at 0
+	 */
+	static void sendRequest(byte[] request, int numOfRetries) throws Exception {
 
-	static DatagramPacket sendRequest(byte[] request, int numOfRetries) throws Exception {
-		if (numOfRetries > maxRetries) {
-			throw new Exception("Maximum number of retries (" + maxRetries+ ") exceeded.");
-		}
+		// Create an array to receive the data
+		byte[] response = new byte[1024];
+
 		try {
+
 			// Create socket
             DatagramSocket clientSocket = new DatagramSocket();
             clientSocket.setSoTimeout(timeout); // Set up timeout limit
-            
+
             // Create InetAddress used by datagram packet
             InetAddress ipAddress = InetAddress.getByAddress(serverIP);
-            
-            // Create an array to receive the data
-            byte[] response = new byte[1024];
-            
+
+
             //create packets
             DatagramPacket sentPacket = new DatagramPacket(request, request.length, ipAddress, port);
             DatagramPacket receivedPacket = new DatagramPacket(response, response.length);
-            long startTime = System.currentTimeMillis();
+
+			long startTime = System.currentTimeMillis();
             clientSocket.send(sentPacket);
             clientSocket.receive(receivedPacket);
             long endTime = System.currentTimeMillis();
-            
-            long requestTime = (endTime-startTime) / 1000;
-            System.out.println("Time to get the response:  " + requestTime);
-            
+
+            float requestTime = (endTime-startTime) / 1000f;
+			System.out.println("Response received after " + requestTime + " seconds (" + numOfRetries + " retries)");
+
             // Check the ids are the same
     		if (request[0] != response[0] || request[1] != response[1]) {
     			throw new Exception("Received response ID does not match the Request ID.");
     		}
-    		
-    		validateAndGetResponse(response);
-    			        
+
+			validateAndPrintResponse(response);
+
 	    } catch (SocketException e) {
 			throw new Exception("Failed to create the socket.");
+
 		} catch (UnknownHostException e) {
 			throw new Exception("The host is unknown.");
+
 		} catch (SocketTimeoutException e) {
+
 			System.out.println("The socket has exceeded the timeout.");
-			System.out.println("Retryinh...");
-			sendRequest(request, numOfRetries++);
-		} 
-		return null;
+
+			if (numOfRetries >= maxRetries) {
+				throw new Exception("Maximum number of retries (" + maxRetries + ") exceeded.");
+
+			}else{
+				System.out.println("Retrying...");
+				sendRequest(request, numOfRetries + 1);
+			}
+		}
+
 	}
 
-	static void validateAndGetResponse(byte[] response) throws Exception {
-		 if (((response[2]>>7)&1) != 1) {
+	/*
+	 * Gets the response as input
+	 *
+	 * The method parses the response to get the required information and prints it
+	 */
+	static void validateAndPrintResponse(byte[] response) throws Exception {
+
+		if (((response[2]>>7)&1) != 1) {
 	            throw new Exception("Received response is a query, not a response.");
 	        }
 	        if (((response[3]>>7)&1) != 1) {
 	            throw new Exception("Server does not support recursive queries.");
 	        }
-	        switch(response[3] & 0x0F){
-	            case 1:
-	                throw new Exception("Format error: the name server was unable to interpret the query.");
-	            case 2:
-	                throw new Exception("Server failure: the name server was unable to process this query due to a problem with the name server.");
-	            case 3:
-	                throw new Exception("Name error: meaningful only for responses from an authoritative name server, the code signifies that the domain name referenced in the query does not exist.");
-	            case 4:
-	                throw new Exception("Not implemented: the name server does not support the requested kind of query.");
-	            case 5:
-	                throw new Exception("Refused: the name server refuses to perform the requested operation for policy reasons.");
-	            default:
-	                break;
-	        }
-	        
-	        
+		switch (response[3] & 0x0F) {
+			case 1 -> throw new Exception("Format error: the name server was unable to interpret the query.");
+			case 2 -> throw new Exception("Server failure: the name server was unable to process this query due to a problem with the name server.");
+			case 3 -> throw new Exception("Name error: meaningful only for responses from an authoritative name server, the code signifies that the domain name referenced in the query does not exist.");
+			case 4 -> throw new Exception("Not implemented: the name server does not support the requested kind of query.");
+			case 5 -> throw new Exception("Refused: the name server refuses to perform the requested operation for policy reasons.");
+			default -> {
+			}
+		}
+
+			//Get the number of records for each section
 			int ANCount = ((response[6] & 0xff) << 8) + (response[7] & 0xff);
 			int NSCount = ((response[8] & 0xff) << 8) + (response[9] & 0xff);
 			int ARCount = ((response[10] & 0xff) << 8) + (response[11] & 0xff);
 
-			
+			//Answer section data
+			if (ANCount > 0) {
+				System.out.println("***Answer Section (" + ANCount + " records)***");
+				for(int i = 0; i < ANCount; i ++){
+					//TODO print records (jsp si on peu le faire proprement sans utiliser une autre class)
+
+				}
+			}
+
+			//Not sure what this is
+			if (NSCount > 0) {
+				for(int i = 0; i < NSCount; i ++){
+					//TODO print records
+				}
+			}
+
+			//Additional section data
+			if (ARCount > 0) {
+				System.out.println("***Additional Section (" + ARCount + " records)***");
+				for(int i = 0; i < ARCount; i ++){
+
+					//TODO print records
+				}
+			}
 	}
+
 
 	static void printQuerySummary() {
 		System.out.println("DnsClient sending request for " + domainName + "\n" + "Server: " + serverString + "\n"
-				+ "Request type: " + queryType.name());
+				+ "Request type: " + queryType.name() + "\n");
 	}
 }
