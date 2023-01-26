@@ -14,25 +14,23 @@ public class DnsClient {
 	private static byte[] server = new byte[4];
 
 	// Fields necessary for request
-    private int HEADER_SIZE = 12;
-    private int QTYE_QCLASS_SIZE = 4;
+    static int HEADER_SIZE = 12;
+    static int QTYE_QCLASS_SIZE = 4;
     
 	public static void main(String[] args) {
 
 		// Input processing
 		try {
 			processInputs(args);
-			// Construct & Send
+			byte[] request = getRequest();
+			// Display a summary of the query
+			printQuerySummary();
+			
+			// TODO: Send the request
+			byte[] response = sendRequest(request, 1);
 		} catch (Exception e) {
-			System.out.println("ERROR \t " + e.getMessage());
+			System.out.println("ERROR: \t " + e.getMessage());
 		}
-
-		// Display a summary of the query
-		printQuerySummary();
-
-		// TODO: Construct DNS packet
-
-		// TODO: Send the request
 
 		// TODO: Receive response
 
@@ -135,7 +133,7 @@ public class DnsClient {
 		throw new Exception("Server IP not found");
 	}
 
-	public byte[] getRequest() throws Exception {
+	static byte[] getRequest() throws Exception {
         int length = domainName.length();
         // Create a byte array for the request 
         byte[] request = new byte[HEADER_SIZE + QTYE_QCLASS_SIZE + length];
@@ -185,7 +183,81 @@ public class DnsClient {
 
 		return request;
 	}
+	
+	static DatagramPacket sendRequest(byte[] request, int numOfRetries) throws Exception {
+		if (numOfRetries > maxRetries) {
+			throw new Exception("Maximum number of retries (" + maxRetries+ ") exceeded.");
+		}
+		try {
+			// Create socket
+            DatagramSocket clientSocket = new DatagramSocket();
+            clientSocket.setSoTimeout(timeout); // Set up timeout limit
+            
+            // Create InetAddress used by datagram packet
+            InetAddress ipAddress = InetAddress.getByAddress(server);
+            
+            // Create an array to receive the data
+            byte[] response = new byte[1024];
+            
+            //create packets
+            DatagramPacket sentPacket = new DatagramPacket(request, request.length, ipAddress, port);
+            DatagramPacket receivedPacket = new DatagramPacket(response, response.length);
+            long startTime = System.currentTimeMillis();
+            clientSocket.send(sentPacket);
+            clientSocket.receive(receivedPacket);
+            long endTime = System.currentTimeMillis();
+            
+            long requestTime = (endTime-startTime) / 1000;
+            System.out.println("Time to get the response:  " + requestTime);
+            
+            // Check the ids are the same
+    		if (request[0] != response[0] || request[1] != response[1]) {
+    			throw new Exception("Received response ID does not match the Request ID.");
+    		}
+    		
+    		validateAndGetResponse(response);
+    			        
+	    } catch (SocketException e) {
+			throw new Exception("Failed to create the socket.");
+		} catch (UnknownHostException e) {
+			throw new Exception("The host is unknown.");
+		} catch (SocketTimeoutException e) {
+			System.out.println("The socket has exceeded the timeout.");
+			System.out.println("Retryinh...");
+			sendRequest(request, numOfRetries++);
+		} 
+	
+	}
 
+	static void validateAndGetResponse(byte[] response) throws Exception {
+		 if (((response[2]>>7)&1) != 1) {
+	            throw new Exception("Received response is a query, not a response.");
+	        }
+	        if (((response[3]>>7)&1) != 1) {
+	            throw new Exception("Server does not support recursive queries.");
+	        }
+	        switch(response[3] & 0x0F){
+	            case 1:
+	                throw new Exception("Format error: the name server was unable to interpret the query.");
+	            case 2:
+	                throw new Exception("Server failure: the name server was unable to process this query due to a problem with the name server.");
+	            case 3:
+	                throw new Exception("Name error: meaningful only for responses from an authoritative name server, the code signifies that the domain name referenced in the query does not exist.");
+	            case 4:
+	                throw new Exception("Not implemented: the name server does not support the requested kind of query.");
+	            case 5:
+	                throw new Exception("Refused: the name server refuses to perform the requested operation for policy reasons.");
+	            default:
+	                break;
+	        }
+	        
+	        
+			int ANCount = ((response[6] & 0xff) << 8) + (response[7] & 0xff);
+			int NSCount = ((response[8] & 0xff) << 8) + (response[9] & 0xff);
+			int ARCount = ((response[10] & 0xff) << 8) + (response[11] & 0xff);
+
+			
+	}
 	static void printQuerySummary() {
 		System.out.println("DnsClient sending request for " + domainName + "\n" + "Server: " + serverIP + "\n"
 				+ "Request type: " + queryType.name() + "\n");
