@@ -137,11 +137,14 @@ public class DNSResponse {
         boolean compressed = false;
 
         while(this.responseData[index] != 0x00) {
+
             if((this.responseData[index] & 0xC0) == 0xC0 && length <= 0) {
+
                 byte[] domainIndex = {(byte) (this.responseData[index++] & 0x3f), this.responseData[index]};
                 storedIndex = index;
                 compressed = true;
                 index = getWord(domainIndex);
+
             } else {
                 if (length == 0) {
                     domain.append(".");
@@ -224,9 +227,5 @@ public class DNSResponse {
 
     private static int getBit(byte b, int p) {
         return (b >> p) & 1;
-    }
-
-    private static int getRCode(byte b) {
-        return ((b >> 0) & 1) + ((b >> 1) & 1) * 2 +((b >> 2) & 1) * 4 + ((b >> 3) & 1) * 8;
     }
 }
