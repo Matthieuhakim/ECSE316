@@ -1,22 +1,16 @@
-import java.io.*;
-import java.net.*;
-
 public class DNSResponse {
 
     private byte[] responseData;
-    private DNSQueryType queryType;
-    private int querySize;
     private int ANCount, NSCount, ARCount;
-    private boolean AA;
+    private boolean isAuth;
     private int index;
+
 
     public DNSResponse(byte[] responseData, int querySize, DNSQueryType queryType) {
 
         this.responseData = responseData;
-        this.querySize = querySize;
         this.index = querySize;
-        this.queryType = queryType;
-        this.AA = getBit(responseData[2], 2) == 1;
+        this.isAuth = getBit(responseData[2], 2) == 1;
 
     }
 
@@ -48,12 +42,14 @@ public class DNSResponse {
     void print() throws Exception {
 
         //Get the number of records for each section
-        int ANCount = ((responseData[6] & 0xff) << 8) + (responseData[7] & 0xff);
-        int NSCount = ((responseData[8] & 0xff) << 8) + (responseData[9] & 0xff);
-        int ARCount = ((responseData[10] & 0xff) << 8) + (responseData[11] & 0xff);
+        ANCount = ((responseData[6] & 0xff) << 8) + (responseData[7] & 0xff);
+        NSCount = ((responseData[8] & 0xff) << 8) + (responseData[9] & 0xff);
+        ARCount = ((responseData[10] & 0xff) << 8) + (responseData[11] & 0xff);
 
+        //If there are no records
         if(ANCount == 0 && ARCount == 0){
             System.out.println("NOT FOUND");
+            return;
         }
 
         //Answer section data
@@ -65,7 +61,6 @@ public class DNSResponse {
             }
         }
 
-        //TODO not sure what this is
         if (NSCount > 0) {
             for(int i = 0; i < NSCount; i ++){
                 printRecordAtIndex(index, false);
@@ -84,10 +79,116 @@ public class DNSResponse {
     }
 
     private void printRecordAtIndex(int index, boolean print) {
+        DNSData domainData = this.parseDomain(this.index);
+        this.index = domainData.getNumOfBytes();
+        long cacheSeconds;
+        int rdLength;
+        int parseType = this.parseType();
 
+        switch (parseType) {
+            case 1 -> {
+                this.validateClassCode();
+                cacheSeconds = this.getCacheSeconds();
+                rdLength = this.getRdLength();
+                DNSData ipEntry = this.parseIp(this.index, rdLength);
+                if (print)
+                    System.out.print("IP\t" + ipEntry.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
+                this.index = ipEntry.getNumOfBytes();
+            }
+            case 2 -> {
+                this.validateClassCode();
+                cacheSeconds = this.getCacheSeconds();
+                this.getRdLength();
+                DNSData nsEntry = parseDomain(this.index);
+                if (print)
+                    System.out.print("NS\t" + domainData.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
+                this.index = nsEntry.getNumOfBytes();
+            }
+            case 5 -> {
+                this.validateClassCode();
+                cacheSeconds = this.getCacheSeconds();
+                this.getRdLength();
+                DNSData cNameEntry = parseDomain(this.index);
+                if (print)
+                    System.out.print("CNAME\t" + domainData.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
+                this.index = cNameEntry.getNumOfBytes();
+            }
+            case 15 -> {
+                this.validateClassCode();
+                cacheSeconds = this.getCacheSeconds();
+                this.getRdLength();
+                int pref = this.getPref();
+                DNSData mxEntry = parseDomain(this.index);
+                if (print)
+                    System.out.print("CNAME\t" + domainData.getDomainName() + "\t" + pref + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
+                this.index = mxEntry.getNumOfBytes();
+            }
+            default -> throw new RuntimeException("Unexpected record type (" + parseType + "), could not process the server response.");
+        }
 
     }
 
+    private DNSData parseDomain(int index) {
+
+        DNSData domainData = new DNSData();
+        StringBuilder domain = new StringBuilder();
+        int storedIndex = index;
+        int length = -1;
+        boolean compressed = false;
+
+        while(this.responseData[index] != 0x00) {
+            if((this.responseData[index] & 0xC0) == 0xC0 && length <= 0) {
+                byte[] domainIndex = {(byte) (this.responseData[index++] & 0x3f), this.responseData[index]};
+                storedIndex = index;
+                compressed = true;
+                index = getWord(domainIndex);
+            } else {
+                if (length == 0) {
+                    domain.append(".");
+                    length = this.responseData[index];
+                } else if (length < 0) {
+                    length = this.responseData[index];
+                } else {
+                    domain.append((char) (this.responseData[index] & 0xFF));
+                    length--;
+                }
+
+                index++;
+            }
+        }
+
+        if (compressed) {
+            domainData.setNumOfBytes(++storedIndex);
+        }
+        else {
+            domainData.setNumOfBytes(index);
+        }
+
+        domainData.setDomainName(domain.toString());
+
+        return domainData;
+    }
+
+
+    private DNSData parseIp(int index, int length) {
+        DNSData ipData = new DNSData();
+        StringBuilder ip = new StringBuilder();
+        int storedIndex = index;
+
+        while(length > 0) {
+            ip.append(this.responseData[index] & 0xff);
+            length--;
+            if (length != 0) {
+                ip.append(".");
+            }
+            index++;
+        }
+
+        ipData.setNumOfBytes(++storedIndex);
+        ipData.setDomainName(ip.toString());
+
+        return ipData;
+    }
 
     private int parseType() {
         byte[] type = {this.responseData[this.index++], this.responseData[this.index++]};
@@ -97,7 +198,7 @@ public class DNSResponse {
     private void validateClassCode() {
         byte[] classCode = {this.responseData[this.index++], this.responseData[this.index++]};
         if (getWord(classCode) != 1) {
-            throw new RuntimeException("ERROR\tUnexpected class code, could not process the server response.");
+            throw new RuntimeException("Unexpected class code, could not process the server response.");
         }
     }
 

@@ -35,11 +35,6 @@ public class DnsClient {
 
 			sendRequest(request, 0);
 
-
-			// TODO: Process response
-
-			// TODO: Print results/errors
-
 		} catch (Exception e) {
 			System.out.println("ERROR: \t " + e.getMessage());
 		}
