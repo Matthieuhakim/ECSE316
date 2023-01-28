@@ -98,7 +98,7 @@ public class DNSResponse {
             case 2 -> {
                 this.validateClassCode();
                 cacheSeconds = this.getCacheSeconds();
-                this.getRdLength();
+                rdLength = this.getRdLength();
                 DNSData nsEntry = parseDomain(this.index);
                 if (print)
                     System.out.print("NS\t" + domainData.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
@@ -107,7 +107,7 @@ public class DNSResponse {
             case 5 -> {
                 this.validateClassCode();
                 cacheSeconds = this.getCacheSeconds();
-                this.getRdLength();
+                rdLength = this.getRdLength();
                 DNSData cNameEntry = parseDomain(this.index);
                 if (print)
                     System.out.print("CNAME\t" + domainData.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
@@ -116,7 +116,7 @@ public class DNSResponse {
             case 15 -> {
                 this.validateClassCode();
                 cacheSeconds = this.getCacheSeconds();
-                this.getRdLength();
+                rdLength = this.getRdLength();
                 int pref = this.getPref();
                 DNSData mxEntry = parseDomain(this.index);
                 if (print)
