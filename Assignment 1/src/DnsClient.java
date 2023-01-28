@@ -264,7 +264,9 @@ public class DnsClient {
     			throw new Exception("Received response ID does not match the Request ID.");
     		}
 
-			validateAndPrintResponse(response);
+			DNSResponse r = new DNSResponse(response, request.length, queryType);
+			r.validate();
+			r.print();
 
 	    } catch (SocketException e) {
 			throw new Exception("Failed to create the socket.");
@@ -284,66 +286,15 @@ public class DnsClient {
 				sendRequest(request, numOfRetries + 1);
 			}
 		}
-
 	}
 
-	/*
-	 * Gets the response as input
-	 *
-	 * The method parses the response to get the required information and prints it
-	 */
-	static void validateAndPrintResponse(byte[] response) throws Exception {
-
-		if (((response[2]>>7)&1) != 1) {
-	            throw new Exception("Received response is a query, not a response.");
-	        }
-	        if (((response[3]>>7)&1) != 1) {
-	            throw new Exception("Server does not support recursive queries.");
-	        }
-		switch (response[3] & 0x0F) {
-			case 1 -> throw new Exception("Format error: the name server was unable to interpret the query.");
-			case 2 -> throw new Exception("Server failure: the name server was unable to process this query due to a problem with the name server.");
-			case 3 -> throw new Exception("Name error: meaningful only for responses from an authoritative name server, the code signifies that the domain name referenced in the query does not exist.");
-			case 4 -> throw new Exception("Not implemented: the name server does not support the requested kind of query.");
-			case 5 -> throw new Exception("Refused: the name server refuses to perform the requested operation for policy reasons.");
-			default -> {
-			}
-		}
-
-			//Get the number of records for each section
-			int ANCount = ((response[6] & 0xff) << 8) + (response[7] & 0xff);
-			int NSCount = ((response[8] & 0xff) << 8) + (response[9] & 0xff);
-			int ARCount = ((response[10] & 0xff) << 8) + (response[11] & 0xff);
-
-			//Answer section data
-			if (ANCount > 0) {
-				System.out.println("***Answer Section (" + ANCount + " records)***");
-				for(int i = 0; i < ANCount; i ++){
-					//TODO print records (jsp si on peu le faire proprement sans utiliser une autre class)
-
-				}
-			}
-
-			//Not sure what this is
-			if (NSCount > 0) {
-				for(int i = 0; i < NSCount; i ++){
-					//TODO print records
-				}
-			}
-
-			//Additional section data
-			if (ARCount > 0) {
-				System.out.println("***Additional Section (" + ARCount + " records)***");
-				for(int i = 0; i < ARCount; i ++){
-
-					//TODO print records
-				}
-			}
-	}
 
 
 	static void printQuerySummary() {
 		System.out.println("DnsClient sending request for " + domainName + "\n" + "Server: " + serverString + "\n"
 				+ "Request type: " + queryType.name() + "\n");
 	}
+
+
+
 }
