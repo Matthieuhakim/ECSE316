@@ -81,8 +81,8 @@ public class DNSResponse {
     private void printRecordAtIndex(int index, boolean print) {
         DNSData domainData = this.parseDomain(this.index);
         this.index = domainData.getNumOfBytes();
-        long cacheSeconds;
-        int rdLength;
+        long cacheSeconds = 0;
+        int rdLength = 0;
         int parseType = this.parseType();
 
         switch (parseType) {
@@ -138,6 +138,8 @@ public class DNSResponse {
 
         while(this.responseData[index] != 0x00) {
 
+
+            //If the domain name is somewhere else (compressed)
             if((this.responseData[index] & 0xC0) == 0xC0 && length <= 0) {
 
                 byte[] domainIndex = {(byte) (this.responseData[index++] & 0x3f), this.responseData[index]};

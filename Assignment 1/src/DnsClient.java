@@ -21,6 +21,11 @@ public class DnsClient {
     
 	public static void main(String[] args) {
 
+		//Just for debugging
+		args = new String[2];
+		args[0] = "@8.8.8.8";
+		args[1] = "www.amazon.com";
+
 		try {
 
 			// Initialise the request parameters
