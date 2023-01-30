@@ -84,7 +84,6 @@ public class DNSResponse {
         long cacheSeconds = 0;
         int rdLength = 0;
         int parseType = this.parseType();
-
         switch (parseType) {
             case 1 -> {
                 this.validateClassCode();
@@ -94,6 +93,7 @@ public class DNSResponse {
                 if (print)
                     System.out.print("IP\t" + ipEntry.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
                 this.index = ipEntry.getNumOfBytes();
+                break;
             }
             case 2 -> {
                 this.validateClassCode();
@@ -103,6 +103,7 @@ public class DNSResponse {
                 if (print)
                     System.out.print("NS\t" + domainData.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
                 this.index = nsEntry.getNumOfBytes();
+                break;
             }
             case 5 -> {
                 this.validateClassCode();
@@ -112,6 +113,7 @@ public class DNSResponse {
                 if (print)
                     System.out.print("CNAME\t" + domainData.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
                 this.index = cNameEntry.getNumOfBytes();
+                break;
             }
             case 15 -> {
                 this.validateClassCode();
@@ -122,6 +124,7 @@ public class DNSResponse {
                 if (print)
                     System.out.print("CNAME\t" + domainData.getDomainName() + "\t" + pref + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
                 this.index = mxEntry.getNumOfBytes();
+                break;
             }
             default -> throw new RuntimeException("Unexpected record type (" + parseType + "), could not process the server response.");
         }
@@ -129,7 +132,6 @@ public class DNSResponse {
     }
 
     private DNSData parseDomain(int index) {
-
         DNSData domainData = new DNSData();
         StringBuilder domain = new StringBuilder();
         int storedIndex = index;
@@ -145,7 +147,8 @@ public class DNSResponse {
                 byte[] domainIndex = {(byte) (this.responseData[index++] & 0x3f), this.responseData[index]};
                 storedIndex = index;
                 compressed = true;
-                index = getWord(domainIndex);
+                index +=2;
+//                index = getWord(domainIndex);
 
             } else {
                 if (length == 0) {

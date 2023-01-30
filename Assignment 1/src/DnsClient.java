@@ -23,8 +23,8 @@ public class DnsClient {
 
 		//Just for debugging
 		args = new String[2];
-		args[0] = "@8.8.8.8";
-		args[1] = "www.amazon.com";
+		args[0] = "@132.206.85.18";
+		args[1] = "test12345567283094p4475013.com";
 
 		try {
 
@@ -41,7 +41,7 @@ public class DnsClient {
 			sendRequest(request, 0);
 
 		} catch (Exception e) {
-			System.out.println("ERROR: \t " + e.getMessage());
+			System.out.println("ERROR\t" + e.getMessage());
 		}
 
 	}
