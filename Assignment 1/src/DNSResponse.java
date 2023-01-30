@@ -93,7 +93,6 @@ public class DNSResponse {
                 if (print)
                     System.out.print("IP\t" + ipEntry.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
                 this.index = ipEntry.getNumOfBytes();
-                break;
             }
             case 2 -> {
                 this.validateClassCode();
@@ -103,7 +102,6 @@ public class DNSResponse {
                 if (print)
                     System.out.print("NS\t" + domainData.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
                 this.index = nsEntry.getNumOfBytes();
-                break;
             }
             case 5 -> {
                 this.validateClassCode();
@@ -113,7 +111,6 @@ public class DNSResponse {
                 if (print)
                     System.out.print("CNAME\t" + domainData.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
                 this.index = cNameEntry.getNumOfBytes();
-                break;
             }
             case 15 -> {
                 this.validateClassCode();
@@ -122,11 +119,10 @@ public class DNSResponse {
                 int pref = this.getPref();
                 DNSData mxEntry = parseDomain(this.index);
                 if (print)
-                    System.out.print("CNAME\t" + domainData.getDomainName() + "\t" + pref + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
+                    System.out.print("MX\t" + domainData.getDomainName() + "\t" + pref + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
                 this.index = mxEntry.getNumOfBytes();
-                break;
             }
-            default -> throw new RuntimeException("Unexpected record type (" + parseType + "), could not process the server response.");
+            default -> System.out.println("Unexpected record type (" + parseType + "), could not process the server response.");
         }
 
     }
@@ -140,15 +136,13 @@ public class DNSResponse {
 
         while(this.responseData[index] != 0x00) {
 
-
             //If the domain name is somewhere else (compressed)
-            if((this.responseData[index] & 0xC0) == 0xC0 && length <= 0) {
+            if((this.responseData[index] & 0xC0) == 0xC0  && length <= 0) {
 
                 byte[] domainIndex = {(byte) (this.responseData[index++] & 0x3f), this.responseData[index]};
                 storedIndex = index;
                 compressed = true;
-                index +=2;
-//                index = getWord(domainIndex);
+                index = getWord(domainIndex);
 
             } else {
                 if (length == 0) {
