@@ -1,16 +1,30 @@
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+
 public class DNSResponse {
 
-    private byte[] responseData;
-    private int ANCount, NSCount, ARCount;
-    private boolean isAuth;
-    private int index;
+    public byte[] Id = new byte[2];
+    public byte[] responseData;
+    public int AA;
+    public int ANCount;
+    public int ARCount;
+    public int length;
+    public DNSQueryType qType;
+
+    public int header_offset = 0;
+    public int answer_offset;
+
+    public ArrayList<DNSData> AnRecords = new ArrayList<>();
+    public ArrayList<DNSData> ArRecords = new ArrayList<>();
 
 
     public DNSResponse(byte[] responseData, int querySize, DNSQueryType queryType) {
 
         this.responseData = responseData;
-        this.index = querySize;
-        this.isAuth = getBit(responseData[2], 2) == 1;
+        this.length = querySize;
+        this.qType = queryType;
 
     }
 
@@ -39,192 +53,231 @@ public class DNSResponse {
     /*
      * The method parses the response to get the required information and prints it
      */
-    void print() throws Exception {
+    void print(){
 
-        //Get the number of records for each section
-        ANCount = ((responseData[6] & 0xff) << 8) + (responseData[7] & 0xff);
-        NSCount = ((responseData[8] & 0xff) << 8) + (responseData[9] & 0xff);
-        ARCount = ((responseData[10] & 0xff) << 8) + (responseData[11] & 0xff);
+        /* HEADER */
+
+        //Get ID of response
+        this.Id[0] = this.responseData[header_offset++];
+        this.Id[1] = this.responseData[header_offset++];
+
+
+        //Parse second row
+        byte[] secondRow = new byte[2];
+        secondRow[0] = this.responseData[header_offset++];
+        secondRow[1] = this.responseData[header_offset++];
+
+        //Set authoritative bit
+        this.AA = (secondRow[0] >> 2) & 1;
+
+        //Get number of AN records
+        // skip QDCount
+        header_offset += 2;
+        byte[] ANCountWord = new byte[2];
+        ANCountWord[0] = this.responseData[header_offset++];
+        ANCountWord[1] = this.responseData[header_offset++];
+        this.ANCount = (ANCountWord[0] << 4) + ANCountWord[1];
+
+
+        //Get number of AR records
+        // skip NSCount
+        header_offset += 2;
+        byte[] ARCountWord = new byte[2];
+        ARCountWord[0] = this.responseData[header_offset++];
+        ARCountWord[1] = this.responseData[header_offset++];
+        this.ARCount = (ARCountWord[0] << 4) + ARCountWord[1];
+
+
+
+        /* ANSWER */
+        answer_offset = length;
+        for (int i = 0; i < ANCount; i++) {
+            DNSData record = new DNSData(this.AA);
+
+            String domain = getString(answer_offset);
+            answer_offset += 2;
+
+            DNSQueryType type = getType();
+
+            //Validate class row
+            byte[] arr = new byte[2];
+            arr[0] = this.responseData[answer_offset++];
+            arr[1] = this.responseData[answer_offset++];
+            if (arr[1] != 1) {
+                throw new RuntimeException("Class row not equal to 0x0001");
+            }
+
+            //Get TTL
+            arr = new byte[4];
+            arr[0] = this.responseData[answer_offset++];
+            arr[1] = this.responseData[answer_offset++];
+            arr[2] = this.responseData[answer_offset++];
+            arr[3] = this.responseData[answer_offset++];
+            int ttl = ByteBuffer.wrap(arr).getInt();
+
+            //Get RD Length
+            arr = new byte[2];
+            arr[0] = this.responseData[answer_offset++];
+            arr[1] = this.responseData[answer_offset++];
+            int rdLength = (arr[0] << 4) + arr[1];
+
+            String rdata = getRData(type, record);
+
+            record.setQueryType(type);
+            record.setrData(domain);
+            record.setTTL(ttl);
+            record.setrData(rdata);
+
+            this.AnRecords.add(record);
+
+            if (type != DNSQueryType.A) answer_offset += rdLength;
+        }
+
+        /* ADDITIONAL */
+        for (int i = 0; i < ARCount; i++) {
+            DNSData record = new DNSData(this.AA);
+
+            String domain = getString(answer_offset);
+            answer_offset += 2;
+
+            DNSQueryType type = getType();
+
+            //Validate class row
+            byte[] arr = new byte[2];
+            arr[0] = this.responseData[answer_offset++];
+            arr[1] = this.responseData[answer_offset++];
+            if (arr[1] != 1) {
+                throw new RuntimeException("Class row not equal to 0x0001");
+            }
+
+            //Get TTL
+            arr = new byte[4];
+            arr[0] = this.responseData[answer_offset++];
+            arr[1] = this.responseData[answer_offset++];
+            arr[2] = this.responseData[answer_offset++];
+            arr[3] = this.responseData[answer_offset++];
+            int ttl = ByteBuffer.wrap(arr).getInt();
+
+            //Get RD Length
+            arr = new byte[2];
+            arr[0] = this.responseData[answer_offset++];
+            arr[1] = this.responseData[answer_offset++];
+            int rdLength = (arr[0] << 4) + arr[1];
+
+            String rdata = getRData(type, record);
+
+            record.setQueryType(type);
+            record.setrData(domain);
+            record.setTTL(ttl);
+            record.setrData(rdata);
+
+            this.ArRecords.add(record);
+
+            answer_offset += rdLength;
+        }
 
         //If there are no records
-        if(ANCount == 0 && ARCount == 0){
+        if(ANCount == 0){
             System.out.println("NOT FOUND");
             return;
         }
 
-        //Answer section data
-        if (ANCount > 0) {
-            System.out.println("***Answer Section (" + ANCount + " records)***");
-            for(int i = 0; i < ANCount; i ++){
-                printRecordAtIndex(index, true);
-
-            }
+        //Print answer section data
+        System.out.println("***Answer Section (" + ANCount + " records)***");
+        for(int i = 0; i < ANCount; i ++){
+            this.AnRecords.get(i).printRecord();
         }
 
-        if (NSCount > 0) {
-            for(int i = 0; i < NSCount; i ++){
-                printRecordAtIndex(index, false);
 
-            }
-        }
-
-        //Additional section data
+        //Print additional section data
         if (ARCount > 0) {
             System.out.println("***Additional Section (" + ARCount + " records)***");
             for(int i = 0; i < ARCount; i ++){
-                printRecordAtIndex(index, true);
-
+                this.AnRecords.get(i).printRecord();
             }
         }
     }
 
-    private void printRecordAtIndex(int index, boolean print) {
-        DNSData domainData = this.parseDomain(this.index);
-        this.index = domainData.getNumOfBytes();
-        long cacheSeconds = 0;
-        int rdLength = 0;
-        int parseType = this.parseType();
-        switch (parseType) {
-            case 1 -> {
-                this.validateClassCode();
-                cacheSeconds = this.getCacheSeconds();
-                rdLength = this.getRdLength();
-                DNSData ipEntry = this.parseIp(this.index, rdLength);
-                if (print)
-                    System.out.print("IP\t" + ipEntry.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
-                this.index = ipEntry.getNumOfBytes();
-            }
-            case 2 -> {
-                this.validateClassCode();
-                cacheSeconds = this.getCacheSeconds();
-                rdLength = this.getRdLength();
-                DNSData nsEntry = parseDomain(this.index);
-                if (print)
-                    System.out.print("NS\t" + domainData.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
-                this.index = nsEntry.getNumOfBytes();
-            }
-            case 5 -> {
-                this.validateClassCode();
-                cacheSeconds = this.getCacheSeconds();
-                rdLength = this.getRdLength();
-                DNSData cNameEntry = parseDomain(this.index);
-                if (print)
-                    System.out.print("CNAME\t" + domainData.getDomainName() + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
-                this.index = cNameEntry.getNumOfBytes();
-            }
-            case 15 -> {
-                this.validateClassCode();
-                cacheSeconds = this.getCacheSeconds();
-                rdLength = this.getRdLength();
-                int pref = this.getPref();
-                DNSData mxEntry = parseDomain(this.index);
-                if (print)
-                    System.out.print("MX\t" + domainData.getDomainName() + "\t" + pref + "\t" + cacheSeconds + "\t" + (this.isAuth ? "auth" : "nonauth") + "\n");
-                this.index = mxEntry.getNumOfBytes();
-            }
-            default -> System.out.println("Unexpected record type (" + parseType + "), could not process the server response.");
-        }
 
+    private DNSQueryType getType() {
+        byte[] arr = new byte[2];
+        arr[0] = this.responseData[answer_offset++];
+        arr[1] = this.responseData[answer_offset++];
+
+        if (arr[1] == 1) {
+            return DNSQueryType.A;
+        } else if (arr[1] == 2) {
+            return DNSQueryType.NS;
+        } else if (arr[1] == 5) {
+            return DNSQueryType.CNAME;
+        } else if (arr[1] == 15) {
+            return DNSQueryType.MX;
+        }else {
+            throw new RuntimeException("Unknown type in response record.");
+        }
     }
 
-    private DNSData parseDomain(int index) {
-        DNSData domainData = new DNSData();
-        StringBuilder domain = new StringBuilder();
-        int storedIndex = index;
-        int length = -1;
-        boolean compressed = false;
 
-        while(this.responseData[index] != 0x00) {
+    private String getString(int index) {
+        StringBuilder result = new StringBuilder();
 
-            //If the domain name is somewhere else (compressed)
-            if((this.responseData[index] & 0xC0) == 0xC0  && length <= 0) {
+        int length = this.responseData[index];
 
-                byte[] domainIndex = {(byte) (this.responseData[index++] & 0x3f), this.responseData[index]};
-                storedIndex = index;
-                compressed = true;
-                index = getWord(domainIndex);
+        boolean first = true;
+        while(length != 0) {
+            if (!first) {
+                result.append(".");
+            } else first = false;
 
+            if ((length & 0xC0) == 0xC0) {
+                // keep the pointer to the data
+                byte[] offset = {(byte) (this.responseData[index] & 0x3F), this.responseData[index + 1]};
+                ByteBuffer wrapped = ByteBuffer.wrap(offset);
+                result.append(getString(wrapped.getShort()));
+                break;
             } else {
-                if (length == 0) {
-                    domain.append(".");
-                    length = this.responseData[index];
-                } else if (length < 0) {
-                    length = this.responseData[index];
-                } else {
-                    domain.append((char) (this.responseData[index] & 0xFF));
-                    length--;
+                for (int i = 0; i < length; i++) {
+                    // System.out.println("CHAR : " + (char) dataBuff[index + i + 1]);
+                    result.append((char) responseData[index + i + 1]);
                 }
-
-                index++;
+                index += length + 1;
+                length = this.responseData[index];
             }
         }
-
-        if (compressed) {
-            domainData.setNumOfBytes(++storedIndex);
-        }
-        else {
-            domainData.setNumOfBytes(index);
-        }
-
-        domainData.setDomainName(domain.toString());
-
-        return domainData;
+        return result.toString();
     }
 
 
-    private DNSData parseIp(int index, int length) {
-        DNSData ipData = new DNSData();
-        StringBuilder ip = new StringBuilder();
-        int storedIndex = index;
-
-        while(length > 0) {
-            ip.append(this.responseData[index] & 0xff);
-            length--;
-            if (length != 0) {
-                ip.append(".");
+    private String getRData(DNSQueryType type, DNSData record) {
+        String result = "";
+        if (type == DNSQueryType.A) {
+            byte [] arr = new byte[4];
+            for (int i = 0; i < 4; i++) {
+                arr[i] = this.responseData[answer_offset++];
             }
-            index++;
+            try {
+                InetAddress iNetAddress = InetAddress.getByAddress(arr);
+                result = iNetAddress.toString().replace("/", "");
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+            }
+
+        } else if (type == DNSQueryType.NS || type == DNSQueryType.CNAME) {
+            result = getString(answer_offset);
+        }
+        else if (type == DNSQueryType.MX) {
+
+            //Get Pref
+            byte[] arr = new byte[2];
+            arr[0] = this.responseData[answer_offset++];
+            arr[1] = this.responseData[answer_offset++];
+            int pref =  (arr[0] << 4) + arr[1];
+
+            record.setPref(pref);
+            result = getString(answer_offset);
         }
 
-        ipData.setNumOfBytes(++storedIndex);
-        ipData.setDomainName(ip.toString());
-
-        return ipData;
+        return result;
     }
 
-    private int parseType() {
-        byte[] type = {this.responseData[this.index++], this.responseData[this.index++]};
-        return getWord(type);
-    }
-
-    private void validateClassCode() {
-        byte[] classCode = {this.responseData[this.index++], this.responseData[this.index++]};
-        if (getWord(classCode) != 1) {
-            throw new RuntimeException("Unexpected class code, could not process the server response.");
-        }
-    }
-
-    private long getCacheSeconds() {
-        byte[] LMB = {this.responseData[this.index++], this.responseData[this.index++]};
-        byte[] RMB = {this.responseData[this.index++], this.responseData[this.index++]};
-        return getWord(LMB) * 65536L + getWord(RMB);
-    }
-
-    private int getRdLength() {
-        byte[] rdLength = {this.responseData[this.index++], this.responseData[this.index++]};
-        return getWord(rdLength);
-    }
-
-    private int getPref() {
-        byte[] pref = {this.responseData[this.index++], this.responseData[this.index++]};
-        return getWord(pref);
-    }
-
-    private static int getWord(byte[] bytes) {
-        return ((bytes[0] & 0xff) << 8) + (bytes[1] & 0xff);
-    }
-
-    private static int getBit(byte b, int p) {
-        return (b >> p) & 1;
-    }
 }

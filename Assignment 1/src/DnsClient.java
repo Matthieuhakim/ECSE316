@@ -32,7 +32,6 @@ public class DnsClient {
 			//Create request
 			byte[] request = createRequest();
 
-
 			sendRequest(request, 0);
 
 		} catch (Exception e) {
