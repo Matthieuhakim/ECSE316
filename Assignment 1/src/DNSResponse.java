@@ -61,7 +61,6 @@ public class DNSResponse {
         this.Id[0] = this.responseData[header_offset++];
         this.Id[1] = this.responseData[header_offset++];
 
-
         //Parse second row
         byte[] secondRow = new byte[2];
         secondRow[0] = this.responseData[header_offset++];
