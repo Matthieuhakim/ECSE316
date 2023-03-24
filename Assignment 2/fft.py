@@ -1,7 +1,7 @@
 import argparse
 import numpy as np
-import matplotlib
-import matplotlib.colors as LogNorm
+import matplotlib.colors as colors
+import matplotlib.pyplot as plt
 
 
 
@@ -76,27 +76,76 @@ def ifft(x):
 
 # Define the 2DFFT function
 def fft2d(x):
-    return fft(fft(x.T, axis=0).T, axis=0)
+    x = np.asarray(x, dtype=complex)
+    N, M = x.shape
+    X = np.zeros((N, M), dtype=complex)
+
+    for i in range(N):
+        X[i, :] = fft(x[i, :])
+
+    for j in range(M):
+        X[:, j] = fft(X[:, j])
+
+    return X
+    
 
 # Define the 2DIFFT function
 def ifft2d(x):
-    return ifft(ifft(x.T, axis=0).T, axis=0)
+    
+    x = np.asarray(x, dtype=complex)
+    N, M = x.shape
+    X = np.zeros((N, M), dtype=complex)
+
+    for i in range(N):
+        X[i, :] = ifft(x[i, :])
+
+    for j in range(M):
+        X[:, j] = ifft(X[:, j])
+
+    return X
      
 
 
 # Helper function to find next closest power of 2
 def nextpow2(x):
-    return np.log2(x).astype(int) + 1
+    return np.power(2, np.log2(x).astype(int) + 1)
 
 # Helper function to resize image to next closest power of 2
 def resize(image):
-    newImage = np.zeros((2**nextpow2(image.shape[0]), 2**nextpow2(image.shape[1])))
+    newShape = nextpow2(image.shape[0]), nextpow2(image.shape[1])
+    newImage = np.zeros(newShape)
     newImage[:image.shape[0], :image.shape[1]] = image
     return newImage
 
 # Fast mode where the image is converted into its FFT form and displayed
 def mode1(image):
-    return
+
+    # Collect image data
+    img = plt.imread(image).astype(float)
+
+    # Resize image to next closest power of 2
+    resizedImage = resize(img)
+
+    # Apply FFT
+    fftImage = fft2d(resizedImage)
+
+    # Create plot for original image and FFT image
+    fig = plt.figure()
+
+    # Add figure for original image
+    ax1 = fig.add_subplot(121)
+    ax1.imshow(img, cmap='gray')
+    ax1.set_title('Original Image')
+
+    # Add figure for FFT image
+    ax2 = fig.add_subplot(122)
+    ax2.imshow(np.abs(fftImage), norm=colors.LogNorm(vmin=5))
+    ax2.set_title('FFT Image')
+
+    # Show both images
+    plt.show()
+
+    return 
 
 
 # Denoising where the image is denoised by applying an FFT, truncating high frequencies and then displayed
