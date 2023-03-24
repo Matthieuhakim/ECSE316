@@ -150,6 +150,49 @@ def mode1(image):
 
 # Denoising where the image is denoised by applying an FFT, truncating high frequencies and then displayed
 def mode2(image):
+
+    # Set pixel ratio to keep
+    cutoff = 0.09
+
+    # Collect image data
+    img = plt.imread(image).astype(float)
+
+    # Resize image to next closest power of 2
+    resizedImage = resize(img)
+
+    # Apply FFT
+    fftImage = fft2d(resizedImage)
+    rows, columns = fftImage.shape
+
+    print("Pixel ratio is {}, we have ({}, {}) non-zeros out of ({}, {})".format(
+        cutoff, int(cutoff * rows), int(cutoff * columns), rows, columns))
+
+    # Truncate high frequencies
+    fftImage[int(cutoff * rows) : int(rows * (1- cutoff))] = 0
+    fftImage[:, int(cutoff * columns) : int(columns * (1- cutoff))] = 0
+
+    # Apply IFFT
+    ifftImage = ifft2d(fftImage).real
+
+    # Truncate image to original size
+    ifftImage = ifftImage[:img.shape[0], :img.shape[1]]
+
+    # Create plot for original image and denoised image
+    fig = plt.figure()
+
+    # Add figure for original image
+    ax1 = fig.add_subplot(121)
+    ax1.imshow(img, cmap='gray')
+    ax1.set_title('Original Image')
+
+    # Add figure for denoised image
+    ax2 = fig.add_subplot(122)
+    ax2.imshow(ifftImage, cmap='gray')
+    ax2.set_title('Denoised Image')
+
+    # Show both images
+    plt.show()
+
     return
 
 
@@ -169,7 +212,7 @@ def main():
     image = args.image
 
     # Call corresponding mode function
-    print("Mode: ", mode)
+    print("Mode", mode)
     if mode == 1:
         mode1(image)
     elif mode == 2:
