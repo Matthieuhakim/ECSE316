@@ -1,4 +1,4 @@
-# ECSE316: DNS Client
+# Assignment 1: DNS Client
 Program was written and tested using Java version 17 
 ### To run the project, open the terminal in the source folder and execute the following:
 #### 1. Compile the code with:
