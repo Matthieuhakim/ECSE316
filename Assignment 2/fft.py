@@ -198,6 +198,45 @@ def mode2(image):
 
 # Compressing and saving the image
 def mode3(image):
+
+    # Take FFT of image
+    img = plt.imread(image).astype(float)
+    resizedImage = resize(img)
+    fftImage = fft2d(resizedImage)
+
+    # Define compression levels
+    compressionLevels = [0, 20, 40, 60, 80, 95]
+
+    # Create a 2 by 3 subplot
+    fig, axs = plt.subplots(2, 3)
+
+    # Loop through compression levels
+    for compressionLevel in compressionLevels:
+            
+            # Threshold the coefficients’ magnitude and take only the largest percentile of them
+            fftImageCompressed = fftImage.copy()
+            fftImageCompressed[np.abs(fftImageCompressed) < np.percentile(np.abs(fftImageCompressed), compressionLevel)] = 0
+
+            # Print number of non-zero coefficients
+            print('Compression Level: ' + str(compressionLevel) + '%, Number of non-zero coefficients: ' + str(np.count_nonzero(fftImageCompressed)))
+
+            # Save Fourier transform matrix of coefficients in a csv
+            np.savetxt('fftImageCompressed' + str(compressionLevel) + '.csv', fftImageCompressed, delimiter=',')
+
+            # Apply IFFT
+            ifftImage = ifft2d(fftImageCompressed).real
+
+            # Truncate image to original size
+            ifftImage = ifftImage[:img.shape[0], :img.shape[1]]
+
+            # Add image to subplot
+            axs[compressionLevels.index(compressionLevel) // 3, compressionLevels.index(compressionLevel) % 3].imshow(ifftImage, cmap='gray')
+            
+            # Add title to subplot
+            axs[compressionLevels.index(compressionLevel) // 3, compressionLevels.index(compressionLevel) % 3].set_title(str(compressionLevel) + '% Compression')
+
+    # Show all images
+    plt.show()
     return
 
 
