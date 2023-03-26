@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
+import time
 
 
 
@@ -85,6 +86,20 @@ def fft2d(x):
 
     for j in range(M):
         X[:, j] = fft(X[:, j])
+
+    return X
+
+# Define the naive 2D fourier function
+def naive_dft2d(x):
+    x = np.asarray(x, dtype=complex)
+    N, M = x.shape
+    X = np.zeros((N, M), dtype=complex)
+
+    for i in range(N):
+        X[i, :] = naive_dft(x[i, :])
+
+    for j in range(M):
+        X[:, j] = naive_dft(X[:, j])
 
     return X
     
@@ -242,6 +257,48 @@ def mode3(image):
 
 # Plotting runtime graphs
 def mode4():
+
+    # Matrices rom 2^5 to 2^10
+    sizes = [2**i for i in range(5, 11)]
+
+    naive_times = []
+    fft_times = []
+
+    for size in sizes:
+
+        # Naive method
+        naive_time = []
+        for i in range(10):
+            matrix = np.random.rand(size, size)
+            start = time.time()
+            naive_dft2d(matrix)
+            end = time.time()
+            naive_time.append(end - start)
+        naive_times.append(np.mean(naive_time))
+
+        # FFT method
+        fft_time = []
+        for i in range(10):
+            matrix = np.random.rand(size, size)
+            start = time.time()
+            fft2d(matrix)
+            end = time.time()
+            fft_time.append(end - start)
+        fft_times.append(np.mean(fft_time))
+
+        # Print mean and variance for fft
+        print("Size: {}, Mean: {}, Variance: {}".format(size, np.mean(fft_time), np.var(fft_time)))
+
+    # Plot data
+    fig, ax = plt.subplots()
+    ax.errorbar(sizes, naive_times, yerr=2*np.std(naive_times), label='Naive Method')
+    ax.errorbar(sizes, fft_times, yerr=2*np.std(fft_times), label='FFT Method')
+    ax.set_xlabel('Problem Size')
+    ax.set_ylabel('Runtime (Seconds)')
+    ax.set_title('2D FFT Runtimes')
+    ax.legend()
+    plt.show()
+    
     return
 
 # Main function
@@ -262,9 +319,3 @@ def main():
         mode4()
 
 main()
-
-
-    
-    
-
-
