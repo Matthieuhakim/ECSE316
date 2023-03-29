@@ -39,7 +39,7 @@ def naive_idft(x):
     
     M = np.exp(2j * np.pi * k * n / N)
     
-    return np.dot(M, x)
+    return np.dot(M, x) * 1 / N
 
 
 # Define the FFT function with base case 16
@@ -88,7 +88,6 @@ def fft2d(x):
         X[:, j] = fft(X[:, j])
 
     return X
-
 # Define the naive 2D fourier function
 def naive_dft2d(x):
     x = np.asarray(x, dtype=complex)
@@ -319,3 +318,17 @@ def main():
         mode4()
 
 main()
+
+
+# randomly_generated_array = np.random.rand(64)
+# randomly_generated_array_2D = np.random.rand(64,64)
+# print(np.allclose(fft(randomly_generated_array), np.fft.fft(randomly_generated_array)))
+# print(np.allclose(fft2d(randomly_generated_array_2D), np.fft.fft2(randomly_generated_array_2D)))
+# print(np.allclose(naive_dft(randomly_generated_array), np.fft.fft(randomly_generated_array)))
+# print(np.allclose(naive_dft2d(randomly_generated_array_2D), np.fft.fft2(randomly_generated_array_2D)))
+
+# randomly_generated_array = np.random.rand(64)
+# randomly_generated_array_2D = np.random.rand(64,64)
+# print(np.allclose(randomly_generated_array, ifft(fft(randomly_generated_array) * 1 / 64)))
+# print(np.allclose(randomly_generated_array, naive_idft(naive_dft(randomly_generated_array))))
+# print(np.allclose(randomly_generated_array_2D, ifft2d(np.fft.fft2(randomly_generated_array_2D))))
