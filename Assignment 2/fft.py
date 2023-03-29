@@ -71,9 +71,14 @@ def ifft(x):
     else:
         X_even = ifft(x[::2])
         X_odd = ifft(x[1::2])
-        factor = np.exp(2j * np.pi * np.arange(N) / N)
-        return np.concatenate([X_even + factor[:int(N/2)] * X_odd,
-                               X_even + factor[int(N/2):] * X_odd])
+        
+        x = np.zeros(N, dtype=complex)
+
+        for n in range(N):
+            x[n] = (N//2) * X_even[n % (N//2)] + \
+                np.exp(2j * np.pi * n / N) * (N//2) * X_odd[n % (N//2)]
+            x[n] /= N
+        return x
 
 # Define the 2DFFT function
 def fft2d(x):
@@ -329,6 +334,6 @@ main()
 
 # randomly_generated_array = np.random.rand(64)
 # randomly_generated_array_2D = np.random.rand(64,64)
-# print(np.allclose(randomly_generated_array, ifft(fft(randomly_generated_array) * 1 / 64)))
+# print(np.allclose(randomly_generated_array, ifft(np.fft.fft(randomly_generated_array))))
 # print(np.allclose(randomly_generated_array, naive_idft(naive_dft(randomly_generated_array))))
 # print(np.allclose(randomly_generated_array_2D, ifft2d(np.fft.fft2(randomly_generated_array_2D))))
